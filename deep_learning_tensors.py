@@ -1,6 +1,7 @@
 import random
 import numpy
 import torch
+import pandas
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
@@ -49,46 +50,66 @@ print("Number of samples in training set: " + str(X_train.shape[0]))
 print("Number of samples in test set: " + str(X_test.shape[0]))
 
 # Encode the data as PyTorch tensors
-X_train = torch.tensor(X_train, dtype=torch.int)
-X_test = torch.tensor(X_test, dtype=torch.int)
-y_train = torch.tensor(y_train, dtype=torch.bool)
-y_test = torch.tensor(y_test, dtype=torch.bool)
+X_train = torch.tensor(X_train, dtype=torch.float)
+X_test = torch.tensor(X_test, dtype=torch.float)
+y_train = torch.tensor(y_train, dtype=torch.long)
+y_test = torch.tensor(y_test, dtype=torch.long)
 
 # define the model
-# Seed for reproducible results
-torch.manual_seed(20)
-
-
-class ANN_model(nn.Module):
+torch.manual_seed(20) # seed for reproducible result
+class MyModel(torch.nn.Module):
     def __init__(
         self,
-        num_input_features=8,
+        num_input_features=2,
         num_neurons_layer1=20,
-        num_neurons_layer2=20,
-        num_neurons_layer3=20,
+        num_neurons_layer2=10,
         num_targets=2
     ):
         super().__init__()
         # Define the neural network layers
-        self.layer1 = nn.Linear(num_input_features, num_neurons_layer1)
-        self.layer2 = nn.Linear(num_neurons_layer1, num_neurons_layer2)
-        self.layer3 = nn.Linear(num_neurons_layer2, num_neurons_layer3)
-        self.out = nn.Linear(num_neurons_layer3, num_targets)
+        self.layer1 = torch.nn.Linear(num_input_features, num_neurons_layer1)
+        self.layer2 = torch.nn.Linear(num_neurons_layer1, num_neurons_layer2)
+        self.out = torch.nn.Linear(num_neurons_layer2, num_targets)
 
     def forward(self, X):
         # pass the data through the layers
-        x = F.relu(self.layer1(X))
-        x = F.relu(self.layer2(x))
-        x = F.relu(self.layer3(x))
+        x = torch.nn.functional.relu(self.layer1(X))
+        x = torch.nn.functional.relu(self.layer2(x))
         return self.out(x)
+
+model = MyModel()
+
+# == Backward Propagation Configuration ==
+# CrossEntropyLoss is a common loss function for classifcation
+loss_function = torch.nn.CrossEntropyLoss()
+# Use the Adam optimizer with a learning rate of 0.01
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+epochs = 1000
+
 # train the model
+for i in range(epochs):
+    y_pred = model.forward(X_train)
+    loss = loss_function(y_pred, y_train)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if i % 10 == 0:
+        print(f"Epoch: {i}. Loss: {loss.item()}")
+
 print("Model training complete")
 
 # test the model
-#y_predicted = model.predict(X_test)
+y_predicted = []
+with torch.no_grad():
+    for i, data in enumerate(X_test):
+        predictions = model(data)
+        y_predicted.append(predictions.argmax())
 
-#print("Classification report:")
-#print(classification_report(y_test, y_predicted))
+# Compare the predicted values for the test set (y_predicted)
+# against the expected values (y_test)
+print("Classification Report:")
+print(classification_report(y_test, y_predicted))
 
 # test the model with sample cases
 
@@ -103,4 +124,17 @@ X_samples.append([700, 1500])	# False
 X_samples.append([1500, 1500])	# False
 X_samples.append([1001, 1001])	# False
 X_samples.append([2000, 2000])	# False
-#print(model.predict(X_samples))
+
+outputs = (False, True)
+def predict(samples):
+    inputs_dataframe = pandas.DataFrame(samples)
+    inputs_tensor = torch.FloatTensor(inputs_dataframe.values)
+    predictions = []
+    for case in inputs_tensor:
+        predictions_tensor = model(case)
+        prediction_index = predictions_tensor.argmax().item()
+        predictions.append(outputs[prediction_index])
+    return predictions
+
+predictions = predict(X_samples)
+print(predictions)
