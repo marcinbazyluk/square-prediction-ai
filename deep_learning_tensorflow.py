@@ -5,7 +5,7 @@ import pandas
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
-data_set_size = 50
+data_set_size = 1000
 x_range = 2000
 y_range = 2000
 
@@ -49,18 +49,18 @@ X_train, X_test, y_train, y_test = train_test_split(data, outcome, test_size=0.2
 print("Number of samples in training set: " + str(X_train.shape[0]))
 print("Number of samples in test set: " + str(X_test.shape[0]))
 
-# Encode the data as PyTorch tensors
-X_train = torch.tensor(X_train, dtype=torch.float)
-X_test = torch.tensor(X_test, dtype=torch.float)
-y_train = torch.tensor(y_train, dtype=torch.long)
-y_test = torch.tensor(y_test, dtype=torch.long)
+# converting the data and outcomes into numpy arrays (requirement of tensorflow.keras)
+X_train = numpy.array(X_train)
+X_test = numpy.array(X_test)
+y_train = numpy.array(y_train)
+y_test = numpy.array(y_test)
 
 # define the model
 tensorflow.random.set_seed(10) # seed for reproducible result
 tensorflow.keras.utils.set_random_seed(10)
 
 model = tensorflow.keras.Sequential([
-    tensorflow.keras.layers.Dense(20, activation='relu', input_shape=(8,)),
+    tensorflow.keras.layers.Dense(20, activation='relu', input_shape=(2,)), # there are 2 input parameters, that's why this value for input_shape
     tensorflow.keras.layers.Dense(10, activation='relu'),
     tensorflow.keras.layers.Dense(2, activation='softmax')
 ])
@@ -74,7 +74,7 @@ model.compile(
     metrics=['accuracy']
 )
 
-epochs = 200
+epochs = 1000
 
 # train the model
 model.fit(X_train, y_train, epochs=epochs, verbose=0.5)
@@ -105,22 +105,10 @@ X_samples.append([2000, 2000])	# False
 
 outputs = (False, True)
 def predict(samples):
-    inputs_dataframe = pandas.DataFrame(samples)
-    inputs_tensor = torch.FloatTensor(inputs_dataframe.values)
-    predictions = []
-    for case in inputs_tensor:
-        predictions_tensor = model(case)
-        prediction_index = predictions_tensor.argmax().item()
-        predictions.append(outputs[prediction_index])
+    prediction_probabilities = model.predict(numpy.array(samples), verbose=0)
+    # argmax gets the index of the maximum value in an array
+    predictions = [outputs[numpy.argmax(p)] for p in prediction_probabilities]
     return predictions
-    
-#def predict(samples):
-#    features_as_lists = [list(sample.values()) for sample in samples]
-#    inputs_array = np.array(features_as_lists)
-#    prediction_probabilities = model.predict(inputs_array, verbose=0)
-#    # argmax gets the index of the maximum value in an array
-#    predictions = [classes[np.argmax(p)] for p in prediction_probabilities]
-#    return predictions
 
-#predictions = predict(X_samples)
-#print(predictions)
+predictions = predict(X_samples)
+print(predictions)
