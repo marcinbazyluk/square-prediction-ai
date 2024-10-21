@@ -1,12 +1,15 @@
+import sys
 import random
 import numpy
+import pandas
+from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 
-data_set_size = 100000
+data_set_size = 1000
 x_range = 2000
 y_range = 2000
+train_batches = 10
 
 x_list = []
 y_list = []
@@ -41,26 +44,42 @@ for i in range(0, int(data_set_size/4)):
   y_list.append(y)
   outcome.append(False)
 
-# merging x_list and y_list into a 2-dim array which will be our dataset of independent variables
-data = numpy.vstack((x_list, y_list)).T
+# merging x_list, y_list and outcome into a 2-dim array which will be our dataset
+data = numpy.vstack((x_list, y_list,outcome)).T
 
-X_train, X_test, y_train, y_test = train_test_split(data, outcome, test_size=0.2)
-print("Number of samples in training set: " + str(X_train.shape[0]))
-print("Number of samples in test set: " + str(X_test.shape[0]))
+train_data, test_data = train_test_split(data, test_size=0.2)
+print("Number of samples in training set: " + str(train_data.shape[0]))
+print("Number of samples in test set: " + str(test_data.shape[0]))
+
+# split test data into independent and dependent values
+y_test = test_data[:,-1:]
+X_test  = numpy.delete(test_data, [-1], axis=1)
 
 # define the model
-model = LogisticRegression(penalty="l2", C=1.0, max_iter=1000)
+model = GaussianNB()
 
-# train the model
-model.fit(X_train, y_train)
-print("Model training complete")
+# remove last N rows that will not fit into a full batch
+rows_to_remove = train_data.shape[0] % train_batches
+train_data = train_data[:-rows_to_remove or None]
 
-# test the model
-y_predicted = model.predict(X_test)
+# train the model in batches
+batch_no = 1
+for train_data_batch in numpy.split(train_data, train_batches):
+  # split train batch data into independent and dependent values
+  y_train_batch = train_data_batch[:,-1:]
+  x_train_batch = numpy.delete(train_data_batch, [-1], axis=1)
+  model.partial_fit(x_train_batch, y_train_batch, numpy.unique(y_train_batch))
+  print("Training batch " + str(batch_no) + "/" + str(train_batches) + " completed.")
 
-print("Classification report:")
-print(classification_report(y_test, y_predicted))
+  # test the model after every batch
+  y_predicted = model.predict(X_test)
 
+  # Compare the predicted values for the test set (y_predicted) against the expected values (y_test)
+  print("Classification Report:")
+  print(classification_report(y_test, y_predicted))
+
+  batch_no += 1
+  
 # test the model with sample cases
 
 X_samples = []
