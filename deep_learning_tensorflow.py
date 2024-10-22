@@ -71,7 +71,9 @@ model = tensorflow.keras.Sequential([
 model.compile(
     optimizer=tensorflow.keras.optimizers.Adam(learning_rate=0.01),
     loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
+    metrics=['accuracy']  # use 'accuracy' as the evaluation metric to be used during training
+    # 'accuracy' is a metric that can be applied to classification tasks only. It describes just what percentage of your test data are classified correctly
+    # for regression tasks use rather 'loss'
 )
 
 epochs = 1000
