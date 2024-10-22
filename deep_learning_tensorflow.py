@@ -1,6 +1,9 @@
+import os
 import random
 import numpy
+import datetime
 import tensorflow
+import tensorboard
 import pandas
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -45,15 +48,21 @@ for i in range(0, int(data_set_size/4)):
 # merging x_list, y_list and outcome into a 2-dim array which will be our dataset
 data = numpy.vstack((x_list, y_list)).T
 
-X_train, X_test, y_train, y_test = train_test_split(data, outcome, test_size=0.2)
-print("Number of samples in training set: " + str(X_train.shape[0]))
-print("Number of samples in test set: " + str(X_test.shape[0]))
+X_train, X_test, y_train, y_test = train_test_split(data, outcome, test_size=0.3)
+# we need to cut out part of the test set into the validation set which will be used to validate the model accuracy after each training epoch
+X_test, X_validation, y_test, y_validation = train_test_split( X_test, y_test, test_size=0.3, random_state=0)
+
+print("Number of samples in the training set: " + str(X_train.shape[0]))
+print("Number of samples in the validation set: " + str(X_validation.shape[0]))
+print("Number of samples in the final test set: " + str(X_test.shape[0]))
 
 # converting the data and outcomes into numpy arrays (requirement of tensorflow.keras)
 X_train = numpy.array(X_train)
 X_test = numpy.array(X_test)
 y_train = numpy.array(y_train)
 y_test = numpy.array(y_test)
+X_validation = numpy.array(X_validation)
+y_validation = numpy.array(y_validation)
 
 # define the model
 tensorflow.random.set_seed(10) # seed for reproducible result
@@ -67,7 +76,6 @@ model = tensorflow.keras.Sequential([
 
 
 # compile the model and define the loss function, the optimizer, and the training epochs.
-
 model.compile(
     optimizer=tensorflow.keras.optimizers.Adam(learning_rate=0.01),
     loss='sparse_categorical_crossentropy',
@@ -76,10 +84,14 @@ model.compile(
     # for regression tasks use rather 'loss'
 )
 
-epochs = 1000
+# define the logging callback (required for training progress visualisation using tensorboard)
+log_dir = "training_logs/" + datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+logging_callback = tensorflow.keras.callbacks.TensorBoard(log_dir=log_dir)
+
+epochs = 100
 
 # train the model
-model.fit(X_train, y_train, epochs=epochs, verbose=0.5)
+model.fit(X_train, y_train, epochs=epochs, validation_data=(X_validation, y_validation), callbacks=[logging_callback])
 
 print("Model training complete")
 
@@ -114,3 +126,8 @@ def predict(samples):
 
 predictions = predict(X_samples)
 print(predictions)
+
+# run the tensorboard server to visualise the training progress
+os.environ["TENSORBOARD_PROXY_URL"] = os.getenv("NB_PREFIX") + "/proxy/6006/"
+print("TensorBoard URL:", os.environ["TENSORBOARD_PROXY_URL"])
+os.system("tensorboard --logdir training_logs")
